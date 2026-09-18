@@ -16,6 +16,11 @@ export interface GeneratedImage {
   contentType?: string;
   /** Requests the provider could not honour exactly, surfaced rather than hidden. */
   warnings?: string[];
+  /**
+   * Whether the requested seed actually reached the model.
+   * False on models that reject a seed, so callers never claim a lock they did not apply.
+   */
+  seedApplied?: boolean;
 }
 
 export interface GenerateRequest {

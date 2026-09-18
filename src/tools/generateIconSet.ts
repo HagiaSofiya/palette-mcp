@@ -2,10 +2,9 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 
 import { generateIconSetInput, generateIconSetOutput } from "../schemas.js";
 import { appendGeneration } from "../services/library.js";
-import { resolveProvider } from "../services/providers/index.js";
+import { modelIdFor, resolveProvider } from "../services/providers/index.js";
 import { composePrompt, resolveStyle } from "../styles.js";
 import type { GenerationRecord } from "../types.js";
-import { modelIdFor } from "./generateImage.js";
 import {
   describeError,
   mapWithConcurrency,
@@ -86,6 +85,11 @@ export function registerGenerateIconSet(server: McpServer): void {
         const modelId = modelIdFor(provider.id, args.model);
         const setId = newId("set");
 
+        // Every concept uses the same provider and model, so these are uniform.
+        // Captured so the summary can report what was *actually* locked.
+        let seedApplied = true;
+        const setWarnings = new Set<string>();
+
         const results = await mapWithConcurrency(args.concepts, async (concept) => {
           const { prompt, negativePrompt } = composePrompt(`${concept} icon`, preset);
 
@@ -96,6 +100,8 @@ export function registerGenerateIconSet(server: McpServer): void {
             ),
             iconId,
           );
+          seedApplied = image.seedApplied;
+          for (const warning of image.warnings) setWarnings.add(warning);
 
           const record: GenerationRecord = {
             id: iconId,
@@ -141,16 +147,21 @@ export function registerGenerateIconSet(server: McpServer): void {
           model: args.model,
           model_id: modelId,
           seed,
+          seed_applied: seedApplied,
           params,
           palette: preset.palette,
           requested: args.concepts.length,
           succeeded,
           icons,
+          ...(setWarnings.size > 0 ? { warnings: [...setWarnings] } : {}),
         };
 
         const lines = [
           `Set ${setId}: ${succeeded}/${args.concepts.length} icons generated.`,
-          `Held constant across every icon - style '${preset.id}', seed ${seed}, palette ${preset.palette.join(" ")}, ${modelId}, ${JSON.stringify(params)}.`,
+          `Held constant across every icon - style '${preset.id}', palette ${preset.palette.join(" ")}, ${modelId}, ${JSON.stringify(params)}.`,
+          seedApplied
+            ? `Shared seed: ${seed}.`
+            : `Seed ${seed} was NOT applied - ${modelId} rejects a seed, so the icons do not share initial noise.`,
           "",
           ...results.map((result, index) => {
             const concept = args.concepts[index]!;
@@ -161,6 +172,9 @@ export function registerGenerateIconSet(server: McpServer): void {
         ];
         if (succeeded < args.concepts.length) {
           lines.push("", "Retry only the failed concepts; the successful ones are already registered.");
+        }
+        if (setWarnings.size > 0) {
+          lines.push("", ...[...setWarnings].map((warning) => `Note: ${warning}`));
         }
 
         const previewUrls = results.flatMap((result) =>

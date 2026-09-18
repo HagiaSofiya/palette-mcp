@@ -39,7 +39,7 @@ export const FAL_MODELS: Record<ModelKey, string> = {
 };
 
 /** FLUX schnell is a 4-step distilled model; Together's free endpoint caps steps here. */
-export const SCHNELL_STEPS = 4;
+export const SCHNELL_STEPS = 8;
 export const DEV_STEPS = 28;
 
 /** Aspect ratios, and the pixel dimensions providers that want width/height receive. */

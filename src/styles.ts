@@ -26,45 +26,50 @@ const DEV_PARAMS: LockedParams = {
 export const STYLE_PRESETS: Record<string, StylePreset> = {
   "flat-minimal": {
     id: "flat-minimal",
-    description: "Flat vector UI icon, solid fills, geometric, no depth cues.",
+    description: "Flat vector icon, solid fills, geometric, no depth cues.",
     promptSuffix:
-      "flat vector icon, solid fill shapes, clean geometric forms, thick rounded corners, " +
-      "centered composition on a plain white background, generous even margins, app icon design",
-    palette: ["#2563EB", "#38BDF8", "#0F172A", "#FFFFFF"],
-    avoid:
-      "no text, no letters, no gradients, no drop shadows, no photorealism, no 3D bevel, no watermark",
+      "minimalist flat vector icon, single centered symbol, simple geometric silhouette, " +
+      "uniform thick strokes, pure white background, wide even white margin around the symbol, " +
+      "plain flat vector illustration",
+    palette: ["#1E3A8A", "#22B8F0", "#FFFFFF"],
+    paletteWords: "solid deep navy and bright azure blue shapes on white",
+    avoid: "text, letters, gradients, drop shadows, photorealism, 3D bevel, watermark, background panel",
     params: DEV_PARAMS,
   },
   "line-art": {
     id: "line-art",
     description: "Monoline stroke icon with a single uniform stroke weight.",
     promptSuffix:
-      "monoline outline icon, single uniform stroke weight, rounded line caps, no fill, " +
-      "centered composition on a plain white background, generous even margins, minimal linework",
+      "minimalist monoline outline icon, single centered symbol drawn in one continuous uniform " +
+      "stroke weight, rounded line caps, open unfilled shapes, pure white background, wide even " +
+      "white margin around the symbol, plain line drawing",
     palette: ["#111827", "#6B7280", "#FFFFFF"],
-    avoid:
-      "no text, no letters, no filled shapes, no gradients, no shadows, no varying line thickness, no watermark",
+    paletteWords: "thin charcoal grey outlines on white",
+    avoid: "text, letters, filled shapes, gradients, shadows, varying line thickness, watermark",
     params: DEV_PARAMS,
   },
   "soft-3d": {
     id: "soft-3d",
     description: "Soft matte clay render with rounded edges and gentle studio light.",
     promptSuffix:
-      "soft 3D clay render, matte plastic material, rounded chamfered edges, gentle diffuse studio " +
-      "lighting from the upper left, subtle contact shadow, centered on a plain light background, isometric-leaning angle",
-    palette: ["#F97316", "#FBBF24", "#7C3AED", "#F8FAFC"],
-    avoid: "no text, no letters, no harsh specular highlights, no busy background, no watermark",
+      "soft 3D clay render of a single centered object, matte plastic material, rounded chamfered " +
+      "edges, gentle diffuse studio lighting from the upper left, soft contact shadow, plain pale " +
+      "background, wide even margin around the object",
+    palette: ["#F97316", "#7C3AED", "#F8FAFC"],
+    paletteWords: "warm orange and soft violet matte clay on a pale grey backdrop",
+    avoid: "text, letters, harsh specular highlights, busy background, watermark",
     params: DEV_PARAMS,
   },
   "duotone-glyph": {
     id: "duotone-glyph",
     description: "Two-tone solid glyph: one accent colour over one base colour.",
     promptSuffix:
-      "duotone glyph icon, exactly two solid colours, bold simplified silhouette, high contrast, " +
-      "centered composition on a plain white background, generous even margins, pictogram style",
+      "bold duotone glyph icon, single centered pictogram in exactly two solid colours, simplified " +
+      "high contrast silhouette, pure white background, wide even white margin around the symbol, " +
+      "flat vector pictogram",
     palette: ["#DB2777", "#1E1B4B", "#FFFFFF"],
-    avoid:
-      "no text, no letters, no third colour, no gradients, no shadows, no fine detail, no watermark",
+    paletteWords: "solid magenta pink and deep indigo shapes on white",
+    avoid: "text, letters, third colour, gradients, shadows, fine detail, watermark",
     params: DEV_PARAMS,
   },
 };
@@ -109,6 +114,7 @@ export function resolveStyle(style: string | undefined, model: ModelKey): StyleP
     description: `Ad-hoc style: ${style}`,
     promptSuffix: style!.trim(),
     palette: base.palette,
+    paletteWords: base.paletteWords,
     avoid: base.avoid,
     params: paramsForModel(base.params, model),
   };
@@ -134,7 +140,7 @@ export function composePrompt(subject: string, preset: StylePreset): ComposedPro
     prompt: [
       subject.trim(),
       preset.promptSuffix,
-      `strict colour palette: ${preset.palette.join(", ")}`,
+      preset.paletteWords,
     ]
       .filter(Boolean)
       .join(". "),

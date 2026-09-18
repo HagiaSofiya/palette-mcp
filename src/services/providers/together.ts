@@ -116,6 +116,7 @@ export const togetherProvider: ImageProvider = {
       width,
       height,
       contentType: request.params.output_format === "png" ? "image/png" : "image/jpeg",
+      seedApplied: true,
     };
   },
 };

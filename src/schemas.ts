@@ -109,7 +109,10 @@ export const generateIconSetOutput = {
   provider: z.string(),
   model: z.string(),
   model_id: z.string(),
-  seed: z.number().describe("The single seed shared by every icon in this set."),
+  seed: z.number().describe("The seed requested for every icon in this set."),
+  seed_applied: z
+    .boolean()
+    .describe("False when the model rejects seeds, meaning the icons do not share initial noise."),
   params: lockedParamsShape.describe("The locked parameters applied identically to every icon."),
   palette: z.array(z.string()).describe("Hex codes injected identically into every prompt."),
   requested: z.number(),
@@ -124,6 +127,7 @@ export const generateIconSetOutput = {
       error: z.string().optional(),
     }),
   ),
+  warnings: z.array(z.string()).optional().describe("Requests the provider could not honour exactly."),
 };
 
 // ---------------------------------------------------------- generate_variations
@@ -145,6 +149,10 @@ export const generateVariationsOutput = {
   model: z.string(),
   requested: z.number(),
   succeeded: z.number(),
+  seed_applied: z
+    .boolean()
+    .describe("False when the model rejects seeds, meaning variations are not reproducible."),
+  warnings: z.array(z.string()).optional(),
   variations: z.array(
     z.object({
       ok: z.boolean(),

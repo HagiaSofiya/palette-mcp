@@ -1,9 +1,8 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 
-import { FAL_MODELS, TOGETHER_MODELS } from "../constants.js";
 import { generateImageInput, generateImageOutput } from "../schemas.js";
 import { appendGeneration } from "../services/library.js";
-import { resolveProvider } from "../services/providers/index.js";
+import { modelIdFor, resolveProvider } from "../services/providers/index.js";
 import { composePrompt, resolveStyle } from "../styles.js";
 import type { GenerationRecord, LockedParams } from "../types.js";
 import {
@@ -16,11 +15,6 @@ import {
   toolResult,
   withRetry,
 } from "./shared.js";
-
-/** The concrete model id a provider will invoke, recorded for traceability. */
-export function modelIdFor(providerId: string, model: "schnell" | "dev"): string {
-  return providerId === "fal" ? FAL_MODELS[model] : TOGETHER_MODELS[model];
-}
 
 const DESCRIPTION = `Generate a single image with FLUX.1.
 

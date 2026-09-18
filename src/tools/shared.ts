@@ -127,6 +127,8 @@ export interface MaterializedImage {
   width?: number;
   height?: number;
   warnings: string[];
+  /** False when the model rejected the seed, so summaries stay truthful. */
+  seedApplied: boolean;
 }
 
 /**
@@ -138,17 +140,18 @@ export interface MaterializedImage {
  */
 export async function materialize(image: GeneratedImage, id: string): Promise<MaterializedImage> {
   const warnings = image.warnings ?? [];
+  const seedApplied = image.seedApplied ?? true;
 
   if (image.bytes) {
     const ext = image.contentType?.includes("png") ? "png" : "jpg";
     const path = await writeAsset(image.bytes, id, ext);
     const { width, height } = await sharp(image.bytes).metadata();
-    return { url: pathToFileURL(absolutePath(path)).href, path, width, height, warnings };
+    return { url: pathToFileURL(absolutePath(path)).href, path, width, height, warnings, seedApplied };
   }
 
   if (!image.url) {
     throw new Error("The provider returned neither a url nor image bytes.");
   }
 
-  return { url: image.url, width: image.width, height: image.height, warnings };
+  return { url: image.url, width: image.width, height: image.height, warnings, seedApplied };
 }

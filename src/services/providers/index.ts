@@ -1,4 +1,12 @@
-import { DEFAULT_PROVIDER, PROVIDER_IDS, type ProviderId } from "../../constants.js";
+import {
+  CLOUDFLARE_MODELS,
+  DEFAULT_PROVIDER,
+  FAL_MODELS,
+  PROVIDER_IDS,
+  TOGETHER_MODELS,
+  type ModelKey,
+  type ProviderId,
+} from "../../constants.js";
 import { cloudflareProvider } from "./cloudflare.js";
 import { falProvider } from "./fal.js";
 import { togetherProvider } from "./together.js";
@@ -28,4 +36,15 @@ export function resolveProvider(): ImageProvider {
     );
   }
   return PROVIDERS[requested as ProviderId];
+}
+
+const MODEL_IDS: Record<ProviderId, Record<ModelKey, string>> = {
+  cloudflare: CLOUDFLARE_MODELS,
+  together: TOGETHER_MODELS,
+  fal: FAL_MODELS,
+};
+
+/** The concrete model id a provider will invoke, recorded for traceability. */
+export function modelIdFor(providerId: string, model: ModelKey): string {
+  return MODEL_IDS[providerId as ProviderId]?.[model] ?? `${providerId}:${model}`;
 }

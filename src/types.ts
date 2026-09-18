@@ -21,8 +21,13 @@ export interface StylePreset {
   description: string;
   /** Appended verbatim to every prompt in the set. */
   promptSuffix: string;
-  /** Literal hex codes, injected identically into every prompt. */
+  /** Hex codes. Reported as metadata so a set's palette is inspectable. */
   palette: string[];
+  /**
+   * The palette as colour words, which is what actually goes in the prompt.
+   * FLUX largely ignores hex codes; named colours are followed far more reliably.
+   */
+  paletteWords: string;
   /** Negative guidance folded into the prompt. */
   avoid: string;
   params: LockedParams;

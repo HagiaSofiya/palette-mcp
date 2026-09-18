@@ -84,6 +84,8 @@ export function registerGenerateVariations(server: McpServer): void {
         // only the seed. The variations are therefore siblings of the original -
         // same subject, same style - rather than re-edits of its pixels.
         const seeds = Array.from({ length: args.n }, () => randomSeed());
+        let seedApplied = true;
+        const runWarnings = new Set<string>();
 
         const results = await mapWithConcurrency(seeds, async (seed) => {
           const variationId = newId("var");
@@ -99,6 +101,8 @@ export function registerGenerateVariations(server: McpServer): void {
             ),
             variationId,
           );
+          seedApplied = image.seedApplied;
+          for (const warning of image.warnings) runWarnings.add(warning);
 
           const record: GenerationRecord = {
             id: variationId,
@@ -139,7 +143,9 @@ export function registerGenerateVariations(server: McpServer): void {
           model: source.model,
           requested: args.n,
           succeeded,
+          seed_applied: seedApplied,
           variations,
+          ...(runWarnings.size > 0 ? { warnings: [...runWarnings] } : {}),
         };
 
         const summary = [
@@ -150,7 +156,11 @@ export function registerGenerateVariations(server: McpServer): void {
               : `  seed ${seeds[index]!}: FAILED - ${result.error}`,
           ),
           "",
-          "Each variation reports its seed - pass one back to generate_image to reproduce it exactly.",
+          seedApplied
+            ? "Each variation reports its seed - pass one back to generate_image to reproduce it exactly."
+            : `${source.modelId} rejects seeds, so these are independent re-rolls of the same prompt ` +
+              "rather than seed-addressed variations, and none of them is reproducible.",
+          ...[...runWarnings].map((warning) => `Note: ${warning}`),
         ].join("\n");
 
         const previewUrls = results.flatMap((result) =>

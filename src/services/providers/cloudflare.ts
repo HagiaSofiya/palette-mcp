@@ -18,6 +18,15 @@ const EnvelopeSchema = z.object({
 const SIGNUP_URL = "https://dash.cloudflare.com/profile/api-tokens";
 
 /**
+ * Which tiers actually accept a seed.
+ *
+ * Cloudflare's docs list `seed` for flux-1-schnell, but the live API rejects it
+ * with "Additional or unevaluated properties '/seed' at '/' not allowed".
+ * Verified against the running service, not the documentation.
+ */
+const SUPPORTS_SEED: Record<string, boolean> = { schnell: false, dev: true };
+
+/**
  * Cloudflare Workers AI.
  *
  * The free allocation is 10,000 Neurons a day, which is roughly 173 images from
@@ -58,16 +67,24 @@ export const cloudflareProvider: ImageProvider = {
     const url = `${CLOUDFLARE_API_BASE}/${process.env.CLOUDFLARE_ACCOUNT_ID!.trim()}/ai/run/${modelId}`;
     const warnings: string[] = [];
 
-    // Workers AI has no negative_prompt field, so exclusions join the prompt.
-    const prompt = request.negativePrompt
-      ? `${request.prompt}. Avoid: ${request.negativePrompt}`
-      : request.prompt;
+    // Workers AI has no negative_prompt field, and exclusions must NOT be folded
+    // into the positive prompt: diffusion models handle negation poorly, so
+    // "no gradients" reliably produces gradients. Dropping them is strictly better.
+    const prompt = request.prompt;
 
     const body: Record<string, unknown> = {
       prompt: prompt.slice(0, 2048),
-      seed: request.seed,
       steps: Math.min(request.params.num_inference_steps, CLOUDFLARE_MAX_STEPS),
     };
+
+    if (SUPPORTS_SEED[request.model]) {
+      body.seed = request.seed;
+    } else {
+      warnings.push(
+        `${modelId} does not accept a seed, so seed ${request.seed} was not applied. Icons in a set ` +
+          "are still locked by style, palette and parameters, but they do not share initial noise.",
+      );
+    }
 
     if (request.model === "dev") {
       // flux-2-dev accepts dimensions and guidance; flux-1-schnell accepts neither.
@@ -124,7 +141,12 @@ export const cloudflareProvider: ImageProvider = {
     // Some models stream raw image bytes back instead of the JSON envelope.
     const contentType = response.headers.get("content-type") ?? "";
     if (contentType.startsWith("image/")) {
-      return { bytes: Buffer.from(raw, "binary"), contentType, warnings };
+      return {
+        bytes: Buffer.from(raw, "binary"),
+        contentType,
+        warnings,
+        seedApplied: SUPPORTS_SEED[request.model] ?? false,
+      };
     }
 
     let envelope: z.infer<typeof EnvelopeSchema>;
@@ -147,6 +169,7 @@ export const cloudflareProvider: ImageProvider = {
       bytes: Buffer.from(envelope.result.image, "base64"),
       contentType: "image/jpeg",
       warnings,
+      seedApplied: SUPPORTS_SEED[request.model] ?? false,
     };
   },
 };

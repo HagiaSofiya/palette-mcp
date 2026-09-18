@@ -73,6 +73,7 @@ export const falProvider: ImageProvider = {
         width: image.width,
         height: image.height,
         contentType: image.content_type,
+        seedApplied: true,
       };
     } catch (error) {
       throw new ProviderError(describeFalError(error, endpoint), {

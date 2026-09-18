@@ -30,33 +30,44 @@ randomSeed()      ->  one seed, shared by every concept in the set
 There is no per-concept code path that can re-derive any of it. The **only** thing that varies
 between requests is the concept noun.
 
-For the `flat-minimal` preset, `generate_icon_set(["inbox", "calendar"])` sends:
+For the `flat-minimal` preset, `generate_icon_set(["flame", "calendar"])` sends:
 
 ```
-inbox icon. flat vector icon, solid fill shapes, clean geometric forms, thick rounded
-corners, centered composition on a plain white background, generous even margins, app
-icon design. strict colour palette: #2563EB, #38BDF8, #0F172A, #FFFFFF
+flame. minimalist flat vector icon, single centered symbol, simple geometric
+silhouette, uniform thick strokes, pure white background, wide even white margin
+around the symbol, plain flat vector illustration. solid deep navy and bright
+azure blue shapes on white
 ```
 
 ```
-calendar icon. flat vector icon, solid fill shapes, clean geometric forms, thick rounded
-corners, centered composition on a plain white background, generous even margins, app
-icon design. strict colour palette: #2563EB, #38BDF8, #0F172A, #FFFFFF
+calendar. minimalist flat vector icon, single centered symbol, simple geometric
+silhouette, uniform thick strokes, pure white background, wide even white margin
+around the symbol, plain flat vector illustration. solid deep navy and bright
+azure blue shapes on white
 ```
 
-…both with `negative_prompt: "no text, no letters, no gradients, no drop shadows, no
-photorealism, no 3D bevel, no watermark"`, the identical seed, and the identical parameter
-object. The response reports exactly what was held constant, so the claim is auditable rather
-than asserted:
+…with the identical parameter object, and the identical seed **where the model accepts one**.
+
+Two things that came out of testing this against a real model, rather than from theory:
+
+- **Colour words beat hex codes.** FLUX largely ignores `#1E3A8A`; "solid deep navy" it follows.
+  The preset keeps the hex values as reportable metadata and puts words in the prompt.
+- **Exclusions never go in the positive prompt.** On providers without a `negative_prompt`
+  field they are dropped, not appended — diffusion models handle negation poorly, and
+  "no gradients" in a positive prompt reliably produces gradients.
+
+The response reports exactly what was held constant, and says so when a lock could *not* be
+applied, so the claim is auditable rather than asserted:
 
 ```
-Held constant across every icon - style 'flat-minimal', seed 673260276,
-palette #2563EB #38BDF8 #0F172A #FFFFFF, @cf/black-forest-labs/flux-1-schnell,
-{"image_size":"square_hd","num_inference_steps":4,"output_format":"png",...}
+Held constant across every icon - style 'flat-minimal', palette #1E3A8A #22B8F0 #FFFFFF,
+@cf/black-forest-labs/flux-1-schnell, {"image_size":"square_hd","num_inference_steps":8,...}
+Seed 4049081962 was NOT applied - @cf/black-forest-labs/flux-1-schnell rejects a seed,
+so the icons do not share initial noise.
 ```
 
-A returned seed can be passed back later, with the same style, to extend an existing set with
-matching icons.
+Where the model does accept a seed, a returned seed can be passed back later with the same
+style to extend an existing set with matching icons.
 
 ---
 
@@ -233,16 +244,28 @@ which get written straight into the asset folder. A `materialize` step normalise
 
 ## Honest limitations
 
-- **`flat-minimal` on `flux-1-schnell` locks fewer parameters than on `dev`.** Schnell accepts
-  only `prompt`, `steps` and `seed`, so the locked-parameter set is smaller. The seed and palette
-  locks — the load-bearing parts — apply on every provider; `guidance_scale` and explicit
-  dimensions only exist on `dev`.
+Measured, not assumed:
+
+- **Cloudflare's `flux-1-schnell` rejects `seed` outright**, despite the Workers AI docs listing
+  it as supported. The live API returns
+  `Additional or unevaluated properties '/seed' at '/' not allowed`. On that provider the seed
+  lock — the strongest cohesion lever — is simply unavailable, and the tools say so in their
+  output instead of pretending otherwise. Together AI and fal.ai do honour seeds.
+- **Cohesion on the free tier is good, not perfect.** With the locked style, palette and
+  parameters, a set shares background, colour and visual language. Composition and framing still
+  drift, and 4–8 step distilled models sometimes miss a concept outright. A seeded provider and
+  a `dev`-class model tighten this considerably.
 - **A shared seed correlates composition, it doesn't guarantee it.** Most of the cohesion comes
   from the locked style suffix, palette and parameters. The seed adds structural correlation on
   top; it is not magic.
-- **`flux-1-schnell` has a fixed output size.** A non-square `aspect_ratio` is reported back as
-  an explicit warning rather than silently dropped. Use `model: "dev"` for real dimension control.
-- **`remove_background` is a keyer.** Flat backgrounds only.
+- **`flux-1-schnell` has a fixed output size**, so a non-square `aspect_ratio` is reported back
+  as an explicit warning rather than silently dropped. `flux-2-dev` on Workers AI needs a
+  `multipart` request this server does not yet implement.
+- **The safety filter false-positives.** The concept "streak flame" was rejected as NSFW
+  (`code 8007`) because "streak" reads as "streaking". Per-concept failures are isolated, so the
+  rest of the set still lands — rename the concept and retry just that one.
+- **`remove_background` is a keyer, not a matting model.** Flat backgrounds only; it reports
+  `removed_ratio` so you can tell when it didn't work.
 - **Tool names are unprefixed** (`generate_image`, not `palette_generate_image`), which risks
   collision if you run several image-generation MCP servers at once.
 

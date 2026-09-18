@@ -2,9 +2,14 @@ import { randomBytes } from "node:crypto";
 
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 
+import { pathToFileURL } from "node:url";
+
+import sharp from "sharp";
+
 import { RATE_LIMIT_RETRIES, SET_CONCURRENCY } from "../constants.js";
+import { absolutePath, writeAsset } from "../services/library.js";
 import { buildPreview } from "../services/preview.js";
-import { ProviderError } from "../services/providers/index.js";
+import { ProviderError, type GeneratedImage } from "../services/providers/index.js";
 
 /** Short, readable ids - the model has to copy these between tool calls. */
 export function newId(prefix: string): string {
@@ -112,4 +117,38 @@ export async function mapWithConcurrency<T, R>(
 
   await Promise.all(Array.from({ length: Math.min(limit, items.length) }, run));
   return results;
+}
+
+export interface MaterializedImage {
+  /** Always set: a provider url, or a file:// url for a locally written image. */
+  url: string;
+  /** Package-relative path, set only when the image was written to disk. */
+  path?: string;
+  width?: number;
+  height?: number;
+  warnings: string[];
+}
+
+/**
+ * Normalise what a provider returned into something uniform.
+ *
+ * Together and fal.ai host the result and hand back a url; Cloudflare returns
+ * the bytes inline. Inline bytes are written into the asset folder immediately,
+ * because otherwise they would only exist in memory and be lost on the next call.
+ */
+export async function materialize(image: GeneratedImage, id: string): Promise<MaterializedImage> {
+  const warnings = image.warnings ?? [];
+
+  if (image.bytes) {
+    const ext = image.contentType?.includes("png") ? "png" : "jpg";
+    const path = await writeAsset(image.bytes, id, ext);
+    const { width, height } = await sharp(image.bytes).metadata();
+    return { url: pathToFileURL(absolutePath(path)).href, path, width, height, warnings };
+  }
+
+  if (!image.url) {
+    throw new Error("The provider returned neither a url nor image bytes.");
+  }
+
+  return { url: image.url, width: image.width, height: image.height, warnings };
 }

@@ -8,6 +8,7 @@ import { composePrompt, resolveStyle } from "../styles.js";
 import type { GenerationRecord, LockedParams } from "../types.js";
 import {
   describeError,
+  materialize,
   newId,
   previewBlocks,
   randomSeed,
@@ -34,8 +35,9 @@ Args:
     'duotone-glyph') or free-form style text. Default 'flat-minimal'
   - aspect_ratio (enum, optional): square_hd | square | portrait_4_3 |
     portrait_16_9 | landscape_4_3 | landscape_16_9. Default 'square_hd'
-  - model ('schnell' | 'dev', optional): default 'schnell', which is free on
-    Together AI. 'dev' is higher quality but paid on every provider
+  - model ('schnell' | 'dev', optional): default 'schnell' (FLUX.1 [schnell],
+    4 steps), which is free on Cloudflare Workers AI. 'dev' is higher quality
+    and costs more of the daily free allocation
   - seed (int, optional): omit for random; the seed used is always returned
   - include_preview (bool, optional): also return a downscaled inline image
 
@@ -54,7 +56,7 @@ Examples:
        aspect_ratio="landscape_16_9"
 
 Errors:
-  - "TOGETHER_API_KEY is not set" if credentials are missing
+  - "CLOUDFLARE_ACCOUNT_ID / CLOUDFLARE_API_TOKEN is not set" if credentials are missing
   - 429 if the provider's rate limit is hit; transient failures are retried
     automatically with backoff before the error surfaces`;
 
@@ -83,13 +85,18 @@ export function registerGenerateImage(server: McpServer): void {
         const seed = args.seed ?? randomSeed();
         const { prompt, negativePrompt } = composePrompt(args.prompt, preset);
 
-        const image = await withRetry(() =>
-          provider.generate({ prompt, negativePrompt, model: args.model, params, seed }),
+        const id = newId("img");
+        const image = await materialize(
+          await withRetry(() =>
+            provider.generate({ prompt, negativePrompt, model: args.model, params, seed }),
+          ),
+          id,
         );
 
         const record: GenerationRecord = {
-          id: newId("img"),
+          id,
           url: image.url,
+          ...(image.path ? { path: image.path } : {}),
           prompt: args.prompt,
           fullPrompt: prompt,
           negativePrompt,
@@ -121,11 +128,18 @@ export function registerGenerateImage(server: McpServer): void {
 
         const summary = [
           `Generated ${record.id} in style '${record.styleId}' via ${provider.label} (${record.modelId}, seed ${record.seed}).`,
-          record.url,
-          "The url expires - call save_to_library to keep it.",
+          record.path ?? record.url,
+          record.path
+            ? "Written locally. Call save_to_library to index it in the asset library."
+            : "The url expires - call save_to_library to keep it.",
+          ...image.warnings,
         ].join("\n");
 
-        return toolResult(summary, output, await previewBlocks(args.include_preview, [record.url]));
+        return toolResult(
+          summary,
+          output,
+          await previewBlocks(args.include_preview, [record.path ?? record.url]),
+        );
       } catch (error) {
         return toolError(describeError(error));
       }

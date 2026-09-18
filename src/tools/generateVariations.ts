@@ -7,6 +7,7 @@ import type { GenerationRecord } from "../types.js";
 import {
   describeError,
   mapWithConcurrency,
+  materialize,
   newId,
   previewBlocks,
   randomSeed,
@@ -85,19 +86,24 @@ export function registerGenerateVariations(server: McpServer): void {
         const seeds = Array.from({ length: args.n }, () => randomSeed());
 
         const results = await mapWithConcurrency(seeds, async (seed) => {
-          const image = await withRetry(() =>
-            provider.generate({
-              prompt: source.fullPrompt,
-              negativePrompt: source.negativePrompt,
-              model: source.model,
-              params: source.params,
-              seed,
-            }),
+          const variationId = newId("var");
+          const image = await materialize(
+            await withRetry(() =>
+              provider.generate({
+                prompt: source.fullPrompt,
+                negativePrompt: source.negativePrompt,
+                model: source.model,
+                params: source.params,
+                seed,
+              }),
+            ),
+            variationId,
           );
 
           const record: GenerationRecord = {
-            id: newId("var"),
+            id: variationId,
             url: image.url,
+            ...(image.path ? { path: image.path } : {}),
             prompt: source.prompt,
             fullPrompt: source.fullPrompt,
             negativePrompt: source.negativePrompt,
@@ -138,17 +144,17 @@ export function registerGenerateVariations(server: McpServer): void {
 
         const summary = [
           `${succeeded}/${args.n} variations of ${source.id} ("${source.prompt}"), style '${source.styleId}'.`,
-          ...variations.map((variation) =>
-            variation.ok
-              ? `  seed ${variation.seed}: ${variation.url}  (${variation.id})`
-              : `  seed ${variation.seed}: FAILED - ${variation.error}`,
+          ...results.map((result, index) =>
+            result.ok
+              ? `  seed ${result.value.seed}: ${result.value.path ?? result.value.url}  (${result.value.id})`
+              : `  seed ${seeds[index]!}: FAILED - ${result.error}`,
           ),
           "",
           "Each variation reports its seed - pass one back to generate_image to reproduce it exactly.",
         ].join("\n");
 
-        const previewUrls = variations.flatMap((variation) =>
-          variation.ok && variation.url ? [variation.url] : [],
+        const previewUrls = results.flatMap((result) =>
+          result.ok ? [result.value.path ?? result.value.url] : [],
         );
         return toolResult(summary, output, await previewBlocks(args.include_preview, previewUrls));
       } catch (error) {

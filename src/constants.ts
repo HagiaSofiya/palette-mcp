@@ -4,9 +4,9 @@ export const SERVER_NAME = "palette-mcp-server";
 export const SERVER_VERSION = "0.1.0";
 
 /** Which backend actually generates images. Set PALETTE_PROVIDER to switch. */
-export const PROVIDER_IDS = ["together", "fal"] as const;
+export const PROVIDER_IDS = ["cloudflare", "together", "fal"] as const;
 export type ProviderId = (typeof PROVIDER_IDS)[number];
-export const DEFAULT_PROVIDER: ProviderId = "together";
+export const DEFAULT_PROVIDER: ProviderId = "cloudflare";
 
 /**
  * Model tiers, mapped to a concrete model id by each provider.
@@ -17,6 +17,16 @@ export type ModelKey = (typeof MODEL_KEYS)[number];
 export const DEFAULT_MODEL: ModelKey = "schnell";
 
 export const TOGETHER_API_URL = "https://api.together.ai/v1/images/generations";
+
+export const CLOUDFLARE_API_BASE = "https://api.cloudflare.com/client/v4/accounts";
+
+export const CLOUDFLARE_MODELS: Record<ModelKey, string> = {
+  schnell: "@cf/black-forest-labs/flux-1-schnell",
+  dev: "@cf/black-forest-labs/flux-2-dev",
+};
+
+/** flux-1-schnell on Workers AI caps diffusion steps at 8. */
+export const CLOUDFLARE_MAX_STEPS = 8;
 
 export const TOGETHER_MODELS: Record<ModelKey, string> = {
   schnell: "black-forest-labs/FLUX.1-schnell-Free",

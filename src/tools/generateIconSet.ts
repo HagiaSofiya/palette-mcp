@@ -9,6 +9,7 @@ import { modelIdFor } from "./generateImage.js";
 import {
   describeError,
   mapWithConcurrency,
+  materialize,
   newId,
   previewBlocks,
   randomSeed,
@@ -29,7 +30,8 @@ Args:
   - style (string, optional): preset id ('flat-minimal', 'line-art', 'soft-3d',
     'duotone-glyph') or free-form style text. Default 'flat-minimal'
   - model ('schnell' | 'dev', optional): default 'schnell', which is free on
-    Together AI's FLUX.1-schnell-Free endpoint. 'dev' is paid on every provider
+    Cloudflare Workers AI. 'dev' is higher quality but uses more of the daily
+    free allocation
   - seed (int, optional): shared by every icon. Omit for random. Pass a seed
     returned by an earlier set, with the same style, to add matching icons later
   - include_preview (bool, optional): return downscaled inline images. Useful for
@@ -51,7 +53,7 @@ Examples:
     seed and the same style
 
 Errors:
-  - "TOGETHER_API_KEY is not set" if credentials are missing
+  - "CLOUDFLARE_ACCOUNT_ID / CLOUDFLARE_API_TOKEN is not set" if credentials are missing
   - Concepts are generated a few at a time and rate-limit failures are retried
     with backoff, so a large set degrades gracefully rather than failing whole`;
 
@@ -87,13 +89,18 @@ export function registerGenerateIconSet(server: McpServer): void {
         const results = await mapWithConcurrency(args.concepts, async (concept) => {
           const { prompt, negativePrompt } = composePrompt(`${concept} icon`, preset);
 
-          const image = await withRetry(() =>
-            provider.generate({ prompt, negativePrompt, model: args.model, params, seed }),
+          const iconId = newId("icon");
+          const image = await materialize(
+            await withRetry(() =>
+              provider.generate({ prompt, negativePrompt, model: args.model, params, seed }),
+            ),
+            iconId,
           );
 
           const record: GenerationRecord = {
-            id: newId("icon"),
+            id: iconId,
             url: image.url,
+            ...(image.path ? { path: image.path } : {}),
             prompt: concept,
             fullPrompt: prompt,
             negativePrompt,
@@ -145,15 +152,20 @@ export function registerGenerateIconSet(server: McpServer): void {
           `Set ${setId}: ${succeeded}/${args.concepts.length} icons generated.`,
           `Held constant across every icon - style '${preset.id}', seed ${seed}, palette ${preset.palette.join(" ")}, ${modelId}, ${JSON.stringify(params)}.`,
           "",
-          ...icons.map((icon) =>
-            icon.ok ? `  ${icon.concept}: ${icon.url}` : `  ${icon.concept}: FAILED - ${icon.error}`,
-          ),
+          ...results.map((result, index) => {
+            const concept = args.concepts[index]!;
+            return result.ok
+              ? `  ${concept}: ${result.value.path ?? result.value.url}`
+              : `  ${concept}: FAILED - ${result.error}`;
+          }),
         ];
         if (succeeded < args.concepts.length) {
           lines.push("", "Retry only the failed concepts; the successful ones are already registered.");
         }
 
-        const previewUrls = icons.flatMap((icon) => (icon.ok && icon.url ? [icon.url] : []));
+        const previewUrls = results.flatMap((result) =>
+          result.ok ? [result.value.path ?? result.value.url] : [],
+        );
         return toolResult(
           lines.join("\n"),
           output,

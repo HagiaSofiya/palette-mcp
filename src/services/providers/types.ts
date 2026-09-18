@@ -1,11 +1,21 @@
 import type { ModelKey } from "../../constants.js";
 import type { LockedParams } from "../../types.js";
 
+/**
+ * One generated image.
+ *
+ * Providers differ in how they hand back the result: Together and fal.ai host it
+ * and return a url, while Cloudflare returns the bytes inline. Exactly one of
+ * `url` or `bytes` is set, and the caller materialises whichever it gets.
+ */
 export interface GeneratedImage {
-  url: string;
+  url?: string;
+  bytes?: Buffer;
   width?: number;
   height?: number;
   contentType?: string;
+  /** Requests the provider could not honour exactly, surfaced rather than hidden. */
+  warnings?: string[];
 }
 
 export interface GenerateRequest {

@@ -1,0 +1,40 @@
+{
+  "name": "palette-mcp",
+  "version": "0.1.0",
+  "description": "MCP server for generating cohesive UI asset sets (icons, images, variations) via fal.ai Flux models",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "palette-mcp": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx watch src/index.ts",
+    "clean": "rm -rf dist",
+    "inspect": "npx @modelcontextprotocol/inspector node dist/index.js"
+  },
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "fal-ai",
+    "flux",
+    "icons",
+    "image-generation"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@fal-ai/client": "^1.10.1",
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "sharp": "^0.35.4",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.1",
+    "tsx": "^4.23.13",
+    "typescript": "^7.0.2"
+  }
+}
